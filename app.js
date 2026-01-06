@@ -205,8 +205,12 @@ function parseTranscript(text) {
                            !lines[i].match(/^⏺ (Entered plan mode|Updated plan|User approved|User declined)/) &&
                            !lines[i].startsWith('⏺ ')) {
 
-                        if (lines[i].startsWith('  ⎿') || lines[i].startsWith('    ')) {
-                            textContent.push(lines[i].replace(/^  ⎿ ?/, '').replace(/^    /, ''));
+                        // Capture indented content (2+ spaces) or continuation lines
+                        if (lines[i].startsWith('  ⎿')) {
+                            textContent.push(lines[i].replace(/^  ⎿ ?/, ''));
+                        } else if (lines[i].startsWith('  ')) {
+                            // 2-space indented content (bullets, numbered lists, etc.)
+                            textContent.push(lines[i].substring(2));
                         } else if (lines[i].trim() === '') {
                             textContent.push('');
                         } else {
