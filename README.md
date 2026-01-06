@@ -5,18 +5,21 @@ A simple web tool to view Claude Code session exports in a readable format. Thin
 ## Usage
 
 1. Export your Claude Code session: `/export session.txt`
-2. Create a [GitHub Gist](https://gist.github.com) with the exported file
-3. Paste the gist URL into the viewer and click Load
+2. Load the session using one of three methods:
+   - **Gist URL** - Upload to [GitHub Gist](https://gist.github.com) and paste the URL
+   - **Paste** - Copy/paste the transcript directly
+   - **Upload** - Drag & drop or select the exported file
 
-You can also link directly to a session by adding `?gist=GIST_ID` to the URL.
+You can also link directly to a gist by adding `?gist=GIST_ID` to the URL.
 
 ## Features
 
+- **Multiple input methods** - Load via Gist URL, paste, or file upload
 - **Readable format** - Human and assistant messages clearly distinguished
-- **Collapsible sections** - Thinking and tool calls hidden by default
+- **Collapsible sections** - Tool calls and status messages hidden by default
 - **Expand/Collapse All** - Quick toggle for all collapsible sections
 - **Direct linking** - Share sessions via URL parameters
-- **No backend** - Runs entirely in the browser using GitHub's API
+- **No backend** - Runs entirely in the browser
 
 ## Local Development
 
