@@ -4,8 +4,8 @@ A simple web tool to view Claude Code session exports in a readable format. Thin
 
 ## Usage
 
-1. Export your Claude Code session: `/export session.json`
-2. Create a [GitHub Gist](https://gist.github.com) with the JSON file
+1. Export your Claude Code session: `/export session.txt`
+2. Create a [GitHub Gist](https://gist.github.com) with the exported file
 3. Paste the gist URL into the viewer and click Load
 
 You can also link directly to a session by adding `?gist=GIST_ID` to the URL.

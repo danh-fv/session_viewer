@@ -228,6 +228,15 @@ header h1 {
     background: #f5f7ff;
 }
 
+/* Status blocks */
+.collapsible.status .collapsible-header {
+    background: #f3e8ff;
+}
+
+.collapsible.status .collapsible-content {
+    background: #faf5ff;
+}
+
 /* Text content */
 .text-block {
     white-space: pre-wrap;

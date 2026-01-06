@@ -40,20 +40,157 @@ async function fetchGist(gistId) {
     const gist = await response.json();
     const files = Object.values(gist.files);
 
-    // Find the JSON file
-    const jsonFile = files.find(f => f.filename.endsWith('.json')) || files[0];
-    if (!jsonFile) {
+    if (!files.length) {
         throw new Error('No files found in gist');
     }
 
+    // Get the first file (or .txt file if available)
+    const file = files.find(f => f.filename.endsWith('.txt')) || files[0];
+
     // Fetch raw content if truncated
-    let content = jsonFile.content;
-    if (jsonFile.truncated && jsonFile.raw_url) {
-        const rawResponse = await fetch(jsonFile.raw_url);
+    let content = file.content;
+    if (file.truncated && file.raw_url) {
+        const rawResponse = await fetch(file.raw_url);
         content = await rawResponse.text();
     }
 
-    return JSON.parse(content);
+    return content;
+}
+
+// Parse the Claude Code transcript format
+function parseTranscript(text) {
+    const messages = [];
+    const lines = text.split('\n');
+
+    let i = 0;
+
+    // Skip the header box (everything until we hit the first `>` or `⏺`)
+    while (i < lines.length) {
+        const line = lines[i];
+        if (line.startsWith('> ') || line.startsWith('⏺')) {
+            break;
+        }
+        i++;
+    }
+
+    // Parse messages
+    while (i < lines.length) {
+        const line = lines[i];
+
+        // User message starts with `> `
+        if (line.startsWith('> ')) {
+            const content = [];
+            content.push(line.substring(2));
+            i++;
+
+            // Continue until we hit another marker
+            while (i < lines.length && !lines[i].startsWith('> ') && !lines[i].startsWith('⏺')) {
+                content.push(lines[i]);
+                i++;
+            }
+
+            messages.push({
+                type: 'human',
+                content: content.join('\n').trim()
+            });
+        }
+        // Assistant message/action starts with `⏺`
+        else if (line.startsWith('⏺')) {
+            const assistantContent = [];
+
+            // Process all consecutive assistant blocks
+            while (i < lines.length && (lines[i].startsWith('⏺') || lines[i].startsWith('  ⎿') || (lines[i].startsWith('  ') && !lines[i].startsWith('> ')))) {
+                const currentLine = lines[i];
+
+                // Tool call: ⏺ Bash(...), ⏺ Write(...), ⏺ Read(...), etc.
+                const toolMatch = currentLine.match(/^⏺ (Bash|Write|Read|Edit|Glob|Grep|Task|WebFetch|WebSearch|TodoWrite|NotebookEdit)\((.*?)\)?$/);
+                if (toolMatch) {
+                    const toolName = toolMatch[1];
+                    const toolArg = toolMatch[2];
+                    const toolContent = [];
+                    i++;
+
+                    // Collect tool output (lines starting with `  ⎿` or indented)
+                    while (i < lines.length && (lines[i].startsWith('  ⎿') || (lines[i].startsWith('    ') && !lines[i].startsWith('⏺') && !lines[i].startsWith('> ')))) {
+                        const outputLine = lines[i].replace(/^  ⎿ ?/, '').replace(/^    /, '');
+                        toolContent.push(outputLine);
+                        i++;
+                    }
+
+                    assistantContent.push({
+                        type: 'tool_use',
+                        name: toolName,
+                        argument: toolArg,
+                        output: toolContent.join('\n').trim()
+                    });
+                    continue;
+                }
+
+                // Status messages (plan mode, etc.) - make collapsible
+                const statusMatch = currentLine.match(/^⏺ (Entered plan mode|Updated plan|User approved|User declined)/);
+                if (statusMatch) {
+                    const statusContent = [currentLine.substring(2)];
+                    i++;
+
+                    // Collect any indented content
+                    while (i < lines.length && (lines[i].startsWith('  ⎿') || lines[i].startsWith('  ') && !lines[i].startsWith('⏺') && !lines[i].startsWith('> '))) {
+                        statusContent.push(lines[i].replace(/^  ⎿ ?/, '').replace(/^  /, ''));
+                        i++;
+                    }
+
+                    assistantContent.push({
+                        type: 'status',
+                        content: statusContent.join('\n').trim()
+                    });
+                    continue;
+                }
+
+                // Regular assistant text
+                if (currentLine.startsWith('⏺ ')) {
+                    const textContent = [currentLine.substring(2)];
+                    i++;
+
+                    // Continue collecting text until we hit a tool call, status, or new message
+                    while (i < lines.length &&
+                           !lines[i].startsWith('> ') &&
+                           !lines[i].match(/^⏺ (Bash|Write|Read|Edit|Glob|Grep|Task|WebFetch|WebSearch|TodoWrite|NotebookEdit)\(/) &&
+                           !lines[i].match(/^⏺ (Entered plan mode|Updated plan|User approved|User declined)/) &&
+                           !lines[i].startsWith('⏺ ')) {
+
+                        if (lines[i].startsWith('  ⎿') || lines[i].startsWith('    ')) {
+                            textContent.push(lines[i].replace(/^  ⎿ ?/, '').replace(/^    /, ''));
+                        } else if (lines[i].trim() === '') {
+                            textContent.push('');
+                        } else {
+                            break;
+                        }
+                        i++;
+                    }
+
+                    assistantContent.push({
+                        type: 'text',
+                        content: textContent.join('\n').trim()
+                    });
+                    continue;
+                }
+
+                // Skip other lines
+                i++;
+            }
+
+            if (assistantContent.length > 0) {
+                messages.push({
+                    type: 'assistant',
+                    content: assistantContent
+                });
+            }
+        }
+        else {
+            i++;
+        }
+    }
+
+    return messages;
 }
 
 // Main load handler
@@ -74,8 +211,9 @@ async function handleLoad() {
     setLoading(true);
 
     try {
-        const session = await fetchGist(gistId);
-        renderSession(session);
+        const content = await fetchGist(gistId);
+        const messages = parseTranscript(content);
+        renderSession(messages);
         controls.classList.remove('hidden');
     } catch (err) {
         showError(err.message);
@@ -87,10 +225,9 @@ async function handleLoad() {
 }
 
 // Render the full session
-function renderSession(session) {
+function renderSession(messages) {
     sessionContainer.innerHTML = '';
 
-    const messages = session.messages || [];
     if (messages.length === 0) {
         sessionContainer.innerHTML = '<p class="loading">No messages found in session</p>';
         return;
@@ -111,13 +248,13 @@ function renderMessage(msg, index) {
 
     const header = document.createElement('div');
     header.className = 'message-header';
-    header.textContent = getMessageLabel(msg.type);
+    header.textContent = msg.type === 'human' ? 'User' : 'Assistant';
     div.appendChild(header);
 
     const content = document.createElement('div');
     content.className = 'message-content';
 
-    if (typeof msg.content === 'string') {
+    if (msg.type === 'human') {
         content.appendChild(renderTextContent(msg.content));
     } else if (Array.isArray(msg.content)) {
         msg.content.forEach(block => {
@@ -130,36 +267,19 @@ function renderMessage(msg, index) {
     return div;
 }
 
-// Get display label for message type
-function getMessageLabel(type) {
-    const labels = {
-        human: 'User',
-        assistant: 'Assistant',
-        tool_result: 'Tool Result'
-    };
-    return labels[type] || type;
-}
-
 // Render a content block
 function renderContentBlock(block) {
     switch (block.type) {
         case 'text':
-            return renderTextContent(block.text);
-
-        case 'thinking':
-            return renderCollapsible('Thinking...', block.thinking, 'thinking');
+            return renderTextContent(block.content);
 
         case 'tool_use':
             return renderToolUse(block);
 
-        case 'tool_result':
-            return renderToolResult(block);
+        case 'status':
+            return renderCollapsible('Status', block.content, 'status');
 
         default:
-            // Handle unknown types gracefully
-            if (block.text) {
-                return renderTextContent(block.text);
-            }
             return null;
     }
 }
@@ -168,11 +288,7 @@ function renderContentBlock(block) {
 function renderTextContent(text) {
     const div = document.createElement('div');
     div.className = 'text-block';
-
-    // Process markdown-style code blocks
-    const processed = processMarkdown(text);
-    div.innerHTML = processed;
-
+    div.innerHTML = processMarkdown(text);
     return div;
 }
 
@@ -240,43 +356,21 @@ function renderCollapsible(title, content, type = '') {
 
 // Render tool use block
 function renderToolUse(block) {
-    const title = `Tool: ${block.name}`;
+    const title = `${block.name}(${block.argument || ''})`;
 
     const contentDiv = document.createElement('div');
     contentDiv.className = 'tool-info';
 
-    if (block.input) {
-        const inputStr = typeof block.input === 'string'
-            ? block.input
-            : JSON.stringify(block.input, null, 2);
+    if (block.output) {
+        // Truncate very long outputs
+        const displayOutput = block.output.length > 3000
+            ? block.output.substring(0, 3000) + '\n... (truncated)'
+            : block.output;
 
-        // Truncate very long inputs
-        const displayInput = inputStr.length > 2000
-            ? inputStr.substring(0, 2000) + '\n... (truncated)'
-            : inputStr;
-
-        contentDiv.innerHTML = `
-            <strong>Input:</strong>
-            <pre>${escapeHtml(displayInput)}</pre>
-        `;
+        contentDiv.innerHTML = `<pre>${escapeHtml(displayOutput)}</pre>`;
     }
 
     return renderCollapsible(title, contentDiv, 'tool-use');
-}
-
-// Render tool result block
-function renderToolResult(block) {
-    let content = block.content;
-    if (typeof content !== 'string') {
-        content = JSON.stringify(content, null, 2);
-    }
-
-    // Truncate very long results
-    const displayContent = content.length > 3000
-        ? content.substring(0, 3000) + '\n... (truncated)'
-        : content;
-
-    return renderCollapsible('Tool Output', displayContent, 'tool-use');
 }
 
 // Toggle all collapsibles
