@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code Session Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Claude Code Session Viewer</h1>
+            <p class="subtitle">Paste a GitHub Gist URL containing a Claude Code session export</p>
+        </header>
+
+        <div class="input-section">
+            <input
+                type="text"
+                id="gist-url"
+                placeholder="https://gist.github.com/username/gist-id"
+                autocomplete="off"
+            >
+            <button id="load-btn">Load</button>
+        </div>
+
+        <div id="error-message" class="error hidden"></div>
+
+        <div id="controls" class="controls hidden">
+            <button id="expand-all">Expand All</button>
+            <button id="collapse-all">Collapse All</button>
+        </div>
+
+        <div id="session-container"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
