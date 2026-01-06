@@ -33,6 +33,33 @@ header h1 {
     font-size: 0.95rem;
 }
 
+/* Tabs */
+.input-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.tab {
+    padding: 8px 20px;
+    font-size: 0.9rem;
+    background: #e5e5e5;
+    border: none;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    transition: background 0.2s;
+    color: #666;
+}
+
+.tab:hover {
+    background: #ddd;
+}
+
+.tab.active {
+    background: #007bff;
+    color: white;
+}
+
 .input-section {
     display: flex;
     gap: 10px;
@@ -53,7 +80,58 @@ header h1 {
     border-color: #007bff;
 }
 
-#load-btn {
+/* Textarea for paste */
+#paste-content {
+    flex: 1;
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    outline: none;
+    resize: vertical;
+    min-height: 120px;
+    transition: border-color 0.2s;
+}
+
+#paste-content:focus {
+    border-color: #007bff;
+}
+
+/* File upload */
+.file-upload {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.file-upload:hover {
+    border-color: #007bff;
+    background: #f8faff;
+}
+
+.file-upload input[type="file"] {
+    display: none;
+}
+
+.file-upload-label {
+    color: #666;
+    font-size: 0.95rem;
+}
+
+.file-upload.dragover {
+    border-color: #007bff;
+    background: #e8f0ff;
+}
+
+/* Load buttons */
+.input-section button {
     padding: 12px 24px;
     font-size: 1rem;
     background: #007bff;
@@ -62,13 +140,14 @@ header h1 {
     border-radius: 8px;
     cursor: pointer;
     transition: background 0.2s;
+    align-self: flex-start;
 }
 
-#load-btn:hover {
+.input-section button:hover {
     background: #0056b3;
 }
 
-#load-btn:disabled {
+.input-section button:disabled {
     background: #ccc;
     cursor: not-allowed;
 }

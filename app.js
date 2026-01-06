@@ -1,17 +1,65 @@
 // DOM Elements
 const gistUrlInput = document.getElementById('gist-url');
-const loadBtn = document.getElementById('load-btn');
+const pasteContent = document.getElementById('paste-content');
+const fileInput = document.getElementById('file-input');
+const fileUpload = document.querySelector('.file-upload');
+const loadGistBtn = document.getElementById('load-gist-btn');
+const loadPasteBtn = document.getElementById('load-paste-btn');
 const errorMessage = document.getElementById('error-message');
 const controls = document.getElementById('controls');
 const expandAllBtn = document.getElementById('expand-all');
 const collapseAllBtn = document.getElementById('collapse-all');
 const sessionContainer = document.getElementById('session-container');
 
-// Event Listeners
-loadBtn.addEventListener('click', handleLoad);
-gistUrlInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') handleLoad();
+// Tab elements
+const tabs = document.querySelectorAll('.tab');
+const gistSection = document.getElementById('gist-section');
+const pasteSection = document.getElementById('paste-section');
+const uploadSection = document.getElementById('upload-section');
+
+// Tab switching
+tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+
+        // Update active tab
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // Show/hide sections
+        gistSection.classList.toggle('hidden', target !== 'gist');
+        pasteSection.classList.toggle('hidden', target !== 'paste');
+        uploadSection.classList.toggle('hidden', target !== 'upload');
+    });
 });
+
+// Event Listeners
+loadGistBtn.addEventListener('click', handleLoadGist);
+gistUrlInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') handleLoadGist();
+});
+
+loadPasteBtn.addEventListener('click', handleLoadPaste);
+
+fileInput.addEventListener('change', handleFileSelect);
+
+// Drag and drop
+fileUpload.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    fileUpload.classList.add('dragover');
+});
+
+fileUpload.addEventListener('dragleave', () => {
+    fileUpload.classList.remove('dragover');
+});
+
+fileUpload.addEventListener('drop', (e) => {
+    e.preventDefault();
+    fileUpload.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file) loadFile(file);
+});
+
 expandAllBtn.addEventListener('click', () => toggleAllCollapsibles(true));
 collapseAllBtn.addEventListener('click', () => toggleAllCollapsibles(false));
 
@@ -193,8 +241,8 @@ function parseTranscript(text) {
     return messages;
 }
 
-// Main load handler
-async function handleLoad() {
+// Handle gist URL load
+async function handleLoadGist() {
     const url = gistUrlInput.value.trim();
     if (!url) {
         showError('Please enter a gist URL');
@@ -208,19 +256,64 @@ async function handleLoad() {
     }
 
     hideError();
-    setLoading(true);
+    setLoading(loadGistBtn, true);
 
     try {
         const content = await fetchGist(gistId);
-        const messages = parseTranscript(content);
-        renderSession(messages);
-        controls.classList.remove('hidden');
+        loadContent(content);
     } catch (err) {
         showError(err.message);
         sessionContainer.innerHTML = '';
         controls.classList.add('hidden');
     } finally {
-        setLoading(false);
+        setLoading(loadGistBtn, false);
+    }
+}
+
+// Handle paste load
+function handleLoadPaste() {
+    const content = pasteContent.value.trim();
+    if (!content) {
+        showError('Please paste your session transcript');
+        return;
+    }
+
+    hideError();
+    loadContent(content);
+}
+
+// Handle file selection
+function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) loadFile(file);
+}
+
+// Load file
+function loadFile(file) {
+    hideError();
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+        loadContent(e.target.result);
+    };
+
+    reader.onerror = () => {
+        showError('Failed to read file');
+    };
+
+    reader.readAsText(file);
+}
+
+// Load and render content
+function loadContent(content) {
+    try {
+        const messages = parseTranscript(content);
+        renderSession(messages);
+        controls.classList.remove('hidden');
+    } catch (err) {
+        showError('Failed to parse transcript: ' + err.message);
+        sessionContainer.innerHTML = '';
+        controls.classList.add('hidden');
     }
 }
 
@@ -395,9 +488,9 @@ function hideError() {
     errorMessage.classList.add('hidden');
 }
 
-function setLoading(loading) {
-    loadBtn.disabled = loading;
-    loadBtn.textContent = loading ? 'Loading...' : 'Load';
+function setLoading(btn, loading) {
+    btn.disabled = loading;
+    btn.textContent = loading ? 'Loading...' : 'Load';
 
     if (loading) {
         sessionContainer.innerHTML = '<div class="loading">Loading session</div>';
@@ -410,7 +503,7 @@ function checkUrlParams() {
     const gistParam = params.get('gist');
     if (gistParam) {
         gistUrlInput.value = gistParam;
-        handleLoad();
+        handleLoadGist();
     }
 }
 

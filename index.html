@@ -10,17 +10,39 @@
     <div class="container">
         <header>
             <h1>Claude Code Session Viewer</h1>
-            <p class="subtitle">Paste a GitHub Gist URL containing a Claude Code session export</p>
+            <p class="subtitle">View Claude Code session exports in a readable format</p>
         </header>
 
-        <div class="input-section">
+        <div class="input-tabs">
+            <button class="tab active" data-tab="gist">Gist URL</button>
+            <button class="tab" data-tab="paste">Paste</button>
+            <button class="tab" data-tab="upload">Upload</button>
+        </div>
+
+        <div class="input-section" id="gist-section">
             <input
                 type="text"
                 id="gist-url"
                 placeholder="https://gist.github.com/username/gist-id"
                 autocomplete="off"
             >
-            <button id="load-btn">Load</button>
+            <button id="load-gist-btn">Load</button>
+        </div>
+
+        <div class="input-section hidden" id="paste-section">
+            <textarea
+                id="paste-content"
+                placeholder="Paste your /export output here..."
+                rows="6"
+            ></textarea>
+            <button id="load-paste-btn">Load</button>
+        </div>
+
+        <div class="input-section hidden" id="upload-section">
+            <label class="file-upload">
+                <input type="file" id="file-input" accept=".txt,.json">
+                <span class="file-upload-label">Choose file or drag & drop</span>
+            </label>
         </div>
 
         <div id="error-message" class="error hidden"></div>
